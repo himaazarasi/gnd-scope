@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>方位・仰角スコープ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+:root{
+  --ground:#EDF0EB; --panel:#F8FAF6; --ink:#16201B; --muted:#5B6860; --line:#CBD3CB;
+  --accent:#0C6B61; --accent-soft:#D3E7E2; --target:#C2651A; --target-soft:#F5E1CF;
+  --ok:#2F7D3A; --warn:#A8740F; --bad:#B23A2E;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"IBM Plex Sans JP","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1512; --panel:#161E1A; --ink:#E4ECE6; --muted:#8FA096; --line:#2A3630;
+    --accent:#4FC3B1; --accent-soft:#17332E; --target:#F0994E; --target-soft:#3A2616;
+    --ok:#6CC77A; --warn:#E3B04B; --bad:#EE7B6E;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1512; --panel:#161E1A; --ink:#E4ECE6; --muted:#8FA096; --line:#2A3630;
+  --accent:#4FC3B1; --accent-soft:#17332E; --target:#F0994E; --target-soft:#3A2616;
+  --ok:#6CC77A; --warn:#E3B04B; --bad:#EE7B6E;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55}
+.wrap{max-width:980px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:grid;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:1.5rem;margin:0;letter-spacing:.02em;text-wrap:balance}
+h1 small{display:block;font-family:var(--mono);font-size:.72rem;color:var(--muted);letter-spacing:.14em;font-weight:400}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:500 .9rem var(--sans);border:1px solid var(--accent);background:var(--accent);color:var(--panel);padding:.55em 1em;border-radius:6px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--target);outline-offset:2px}
+.status{font-family:var(--mono);font-size:.78rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 14px}
+.chip{display:inline-flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dot.on{background:var(--ok)} .dot.wait{background:var(--warn)} .dot.off{background:var(--bad)}
+.grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px;align-content:start}
+.lbl{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+.readout{display:grid;gap:10px}
+.row{display:grid;grid-template-columns:4.2em 1fr;align-items:baseline;gap:8px;border-bottom:1px dashed var(--line);padding-bottom:8px}
+.row:last-child{border-bottom:0;padding-bottom:0}
+.row .k{font-size:.85rem;color:var(--muted)}
+.big{font-family:var(--mono);font-weight:600;font-size:clamp(1.15rem,4.6vw,1.6rem);font-variant-numeric:tabular-nums;letter-spacing:-.01em;overflow-wrap:anywhere}
+.sub{font-family:var(--mono);font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.gauges{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:420px){.gauges{grid-template-columns:1fr}}
+.gauge{display:grid;gap:4px;justify-items:center;text-align:center}
+.gauge svg{width:100%;max-width:220px;height:auto}
+.gv{font-family:var(--mono);font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.gv.t{color:var(--target);font-size:.9rem;font-weight:600}
+.zero{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.zero button{font-size:.82rem;padding:.4em .8em}
+.offs{font-family:var(--mono);font-size:.75rem;color:var(--target)}
+.note{font-size:.82rem;color:var(--muted);max-width:68ch}
+.hint{border-left:3px solid var(--target);padding-left:10px}
+@media (prefers-reduced-motion:reduce){.needle{transition:none!important}}
+.needle{transition:transform .15s linear}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1><small>GROUND STATION SCOPE</small>方位・仰角スコープ</h1>
+    <div class="btns">
+      <button id="start" type="button">センサー開始</button>
+      <button id="stop" type="button" class="ghost">停止</button>
+    </div>
+  </header>
+  <div class="status" aria-live="polite">
+    <span class="chip"><span class="dot" id="dGps"></span>GPS: <span id="sGps">待機中（サンプル表示）</span></span>
+    <span class="chip"><span class="dot" id="dOri"></span>方位/傾き: <span id="sOri">待機中（サンプル表示）</span></span>
+  </div>
+
+  <div class="grid">
+    <section>
+      <div class="lbl">現在地 / Position</div>
+      <div class="readout">
+        <div class="row"><span class="k">緯度</span><div><div class="big" id="lat">—</div><div class="sub" id="latD"></div></div></div>
+        <div class="row"><span class="k">経度</span><div><div class="big" id="lon">—</div><div class="sub" id="lonD"></div></div></div>
+        <div class="row"><span class="k">高度</span><div><div class="big" id="alt">—</div><div class="sub" id="altAcc"></div></div></div>
+        <div class="row"><span class="k">精度</span><div class="sub" id="acc">—</div></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="lbl">姿勢 / Attitude</div>
+      <div class="gauges">
+        <div class="gauge">
+          <svg viewBox="-110 -110 220 220" aria-label="コンパス">
+            <circle r="100" fill="var(--ground)" stroke="var(--line)" stroke-width="2"/>
+            <g id="card" class="needle"></g>
+            <path d="M0,-78 L6,0 L0,8 L-6,0 Z" fill="var(--accent)"/>
+            <circle r="4" fill="var(--ink)"/>
+          </svg>
+          <div class="lbl">コンパス（方位角）</div>
+          <div class="gv" id="hdg">—</div>
+          <div class="sub" id="hdgName"></div>
+        </div>
+        <div class="gauge">
+          <svg viewBox="-20 -120 140 140" aria-label="仰角">
+            <path d="M0,0 L100,0 A100,100 0 0 0 0,-100 Z" fill="var(--ground)" stroke="var(--line)" stroke-width="2"/>
+            <g id="elTicks"></g>
+            <g id="elNeedle" class="needle"><line x1="0" y1="0" x2="92" y2="0" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/></g>
+            <circle r="5" fill="var(--ink)"/>
+          </svg>
+          <div class="lbl">仰角</div>
+          <div class="gv" id="elv">—</div>
+          <div class="sub" id="roll"></div>
+          <div class="offs" id="offs"></div>
+          <div class="zero">
+            <button id="zero" type="button">仰角を0°にする</button>
+            <button id="unzero" type="button" class="ghost">リセット</button>
+          </div>
+        </div>
+      </div>
+      <p class="note hint">スマホの<b>上端</b>を向けた方向の方位と仰角を表示するよ。アンテナのブームにスマホを沿わせて上端を先端側に向ければ、そのままアンテナの向きになる。<br>「仰角を0°にする」を押すと、今の傾きを0°として基準にするよ（水平器で水平を出した状態で押すのがおすすめ）。</p>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const D2R = Math.PI/180, R2D = 180/Math.PI;
+  const state = { lat:34.6873, lon:135.5262, alt:30, acc:null, altAcc:null, hdg:72, raw:18, roll:0, src:'sample' };
+  let elOffset = 0;
+  try { elOffset = parseFloat(localStorage.getItem('elOffset')) || 0; } catch(_){}
+  const saveOff = () => { try { localStorage.setItem('elOffset', String(elOffset)); } catch(_){} };
+
+  // ---------- 表示ユーティリティ ----------
+  function dms(v, pos, neg){
+    const s = v >= 0 ? pos : neg; v = Math.abs(v);
+    let d = Math.floor(v), mF = (v - d)*60, m = Math.floor(mF), sec = (mF - m)*60;
+    if (sec >= 59.995){ sec = 0; m++; } if (m >= 60){ m = 0; d++; }
+    return `${d}°${String(m).padStart(2,'0')}′${sec.toFixed(2).padStart(5,'0')}″${s}`;
+  }
+  const dirs = ['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+  const dirName = a => dirs[Math.round(((a%360)+360)%360/22.5)%16];
+  const norm = a => ((a%360)+360)%360;
+
+  // ---------- コンパス目盛り ----------
+  (function drawCard(){
+    const g = $('card'); let h = '';
+    for (let a = 0; a < 360; a += 10){
+      const r1 = a % 30 === 0 ? 84 : 90, x1 = Math.sin(a*D2R)*r1, y1 = -Math.cos(a*D2R)*r1;
+      const x2 = Math.sin(a*D2R)*98, y2 = -Math.cos(a*D2R)*98;
+      h += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--muted)" stroke-width="${a%90===0?2.5:1}"/>`;
+    }
+    [['N',0],['E',90],['S',180],['W',270]].forEach(([t,a])=>{
+      const x = Math.sin(a*D2R)*68, y = -Math.cos(a*D2R)*68 + 6;
+      h += `<text x="${x}" y="${y}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700" font-size="17" fill="${t==='N'?'var(--bad)':'var(--ink)'}">${t}</text>`;
+    });
+    g.innerHTML = h;
+    let e = '';
+    for (let a = 0; a <= 90; a += 15){
+      const c = Math.cos(a*D2R), s = Math.sin(a*D2R);
+      e += `<line x1="${c*88}" y1="${-s*88}" x2="${c*100}" y2="${-s*100}" stroke="var(--muted)" stroke-width="${a%45===0?2:1}"/>`;
+      if (a % 30 === 0) e += `<text x="${c*112}" y="${-s*112+4}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="var(--muted)">${a}°</text>`;
+    }
+    $('elTicks').innerHTML = e;
+  })();
+
+  // ---------- 描画 ----------
+  function render(){
+    $('lat').textContent = dms(state.lat,'N','S');
+    $('lon').textContent = dms(state.lon,'E','W');
+    $('latD').textContent = state.lat.toFixed(6)+'°';
+    $('lonD').textContent = state.lon.toFixed(6)+'°';
+    $('alt').textContent = state.alt == null ? '取得不可' : state.alt.toFixed(1)+' m';
+    $('altAcc').textContent = state.altAcc != null ? `±${state.altAcc.toFixed(1)} m（楕円体高の場合あり）` : (state.src==='gps' ? '端末が高度を返していない' : '');
+    $('acc').textContent = state.acc != null ? `水平 ±${state.acc.toFixed(1)} m` : 'サンプル値';
+
+    const h = state.hdg, ev = state.raw == null ? null : state.raw - elOffset;
+    $('offs').textContent = elOffset ? `補正中（基準 ${elOffset>=0?'+':''}${elOffset.toFixed(1)}°）` : '';
+    $('hdg').textContent = h == null ? '—' : norm(h).toFixed(1).padStart(5,'0')+'°';
+    $('hdgName').textContent = h == null ? '' : dirName(h);
+    $('elv').textContent = ev == null ? '—' : (ev>=0?'+':'')+ev.toFixed(1)+'°';
+    $('roll').textContent = state.roll != null ? `左右傾き ${state.roll.toFixed(1)}°` : '';
+    if (h != null) $('card').style.transform = `rotate(${-h}deg)`;
+    if (ev != null) $('elNeedle').style.transform = `rotate(${-Math.max(-10,Math.min(100,ev))}deg)`;
+
+  }
+
+  // ---------- センサー ----------
+  let watchId = null, oriOn = false;
+  function setStat(dot, txtEl, cls, txt){ $(dot).className = 'dot '+cls; $(txtEl).textContent = txt; }
+
+  function onOri(e){
+    let hdg = null;
+    if (typeof e.webkitCompassHeading === 'number') hdg = e.webkitCompassHeading;
+    else if (e.absolute && e.alpha != null) hdg = 360 - e.alpha;
+    else if (e.alpha != null && e.type === 'deviceorientationabsolute') hdg = 360 - e.alpha;
+    // 画面の向き補正
+    const so = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    if (hdg != null) state.hdg = norm(hdg + so);
+    if (e.beta != null) state.raw = e.beta;   // 上端を持ち上げると＋
+    if (e.gamma != null) state.roll = e.gamma;
+    if (hdg == null && e.alpha != null) setStat('dOri','sOri','wait','傾きのみ（方位が相対値）');
+    else setStat('dOri','sOri','on','受信中');
+    render();
+  }
+
+  async function startOri(){
+    try{
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+        const p = await DeviceOrientationEvent.requestPermission();
+        if (p !== 'granted'){ setStat('dOri','sOri','off','許可されなかった'); return; }
+      }
+      if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', onOri);
+      else window.addEventListener('deviceorientation', onOri);
+      oriOn = true;
+      setStat('dOri','sOri','wait','応答待ち…（PCでは動かない）');
+    }catch(err){ setStat('dOri','sOri','off','使えない: '+err.message); }
+  }
+  function startGps(){
+    if (!('geolocation' in navigator)){ setStat('dGps','sGps','off','この端末は非対応'); return; }
+    setStat('dGps','sGps','wait','測位中…');
+    watchId = navigator.geolocation.watchPosition(p=>{
+      const c = p.coords;
+      Object.assign(state,{lat:c.latitude, lon:c.longitude, alt:c.altitude, acc:c.accuracy, altAcc:c.altitudeAccuracy, src:'gps'});
+      setStat('dGps','sGps','on','受信中 '+new Date(p.timestamp).toLocaleTimeString('ja-JP'));
+      render();
+    }, err=>{
+      const m = {1:'許可されなかった（ブラウザの設定で位置情報を許可してね）',2:'位置が取れない',3:'タイムアウト'}[err.code] || err.message;
+      setStat('dGps','sGps','off',m);
+    }, {enableHighAccuracy:true, maximumAge:0, timeout:20000});
+  }
+  $('start').addEventListener('click', ()=>{ startGps(); startOri(); });
+  $('stop').addEventListener('click', ()=>{
+    if (watchId != null) navigator.geolocation.clearWatch(watchId); watchId = null;
+    if (oriOn){ window.removeEventListener('deviceorientationabsolute', onOri); window.removeEventListener('deviceorientation', onOri); oriOn=false; }
+    setStat('dGps','sGps','','停止中'); setStat('dOri','sOri','','停止中');
+  });
+  $('zero').addEventListener('click', ()=>{ if (state.raw != null){ elOffset = state.raw; saveOff(); render(); } });
+  $('unzero').addEventListener('click', ()=>{ elOffset = 0; saveOff(); render(); });
+  render();
+})();
+</script>
+</body>
+</html>
